@@ -43,7 +43,23 @@ class WheelOdometryNode(Node, TB3Kinematics):
         self.odom_msg = Odometry()
         ##### YOUR CODE STARTS HERE ##### # noqa: E266
         # TODO Initialize the coordinates frames in the odometry message
-        pass
+        self.odom_frame = self.get_parameter('odom_frame').get_parameter_value().string_value
+        self.base_frame = self.get_parameter('base_frame').get_parameter_value().string_value
+        self.odom_msg.header.frame_id = self.odom_frame
+        self.odom_msg.child_frame_id = self.base_frame
+        self.odom_msg.pose.pose.position.x = 0.0
+        self.odom_msg.pose.pose.position.y = 0.0
+        self.odom_msg.pose.pose.position.z = 0.0
+        self.odom_msg.pose.pose.orientation.x = 0.0
+        self.odom_msg.pose.pose.orientation.y = 0.0
+        self.odom_msg.pose.pose.orientation.z = 0.0
+        self.odom_msg.pose.pose.orientation.w = 1.0
+        self.odom_msg.twist.twist.linear.x = 0.0
+        self.odom_msg.twist.twist.linear.y = 0.0
+        self.odom_msg.twist.twist.linear.z = 0.0
+        self.odom_msg.twist.twist.angular.x = 0.0
+        self.odom_msg.twist.twist.angular.y = 0.0
+        self.odom_msg.twist.twist.angular.z = 0.0
         ##### YOUR CODE ENDS HERE   ##### # noqa: E266
         self.odom_msg.pose.covariance = np.diag((0.1, 0.1, 1e6, 1e6, 1e6, 0.2)).flatten().tolist()
         self.odom_msg.twist.covariance = np.diag((0.1, 0.1, 1e6, 1e6, 1e6, 0.2)).flatten().tolist()
@@ -111,16 +127,30 @@ class WheelOdometryNode(Node, TB3Kinematics):
         """
         ##### YOUR CODE STARTS HERE ##### # noqa: E266
         # TODO Calculate change in wheel angles using new msg and self.prev_joint_states
-        pass
+        delta_wheel_l, delta_wheel_r, delta_time = self.calculate_wheel_change(
+            new_joint_states, self.prev_joint_states)
 
         # TODO Calculate displacement
-        pass
+        delta_s, delta_theta = self.calculate_displacement(delta_wheel_l, delta_wheel_r)
 
         # TODO Compute new pose
-        pass
+        self.pose = self.calculate_pose(self.pose, delta_s, delta_theta)
 
         # TODO Update odometry message (stored in self.odom) based on new time, pose, and velocity
-        pass
+        self.odom_msg.header.stamp = new_joint_states.header.stamp
+        self.odom_msg.pose.pose.position.x = self.pose[0]
+        self.odom_msg.pose.pose.position.y = self.pose[1]
+        self.odom_msg.pose.pose.position.z = 0.0
+        self.odom_msg.pose.pose.orientation.x = 0.0
+        self.odom_msg.pose.pose.orientation.y = 0.0
+        self.odom_msg.pose.pose.orientation.z = np.sin(self.pose[2] / 2.0)
+        self.odom_msg.pose.pose.orientation.w = np.cos(self.pose[2] / 2.0)
+        self.odom_msg.twist.twist.linear.x = delta_s / delta_time
+        self.odom_msg.twist.twist.linear.y = 0.0
+        self.odom_msg.twist.twist.linear.z = 0.0
+        self.odom_msg.twist.twist.angular.x = 0.0
+        self.odom_msg.twist.twist.angular.y = 0.0
+        self.odom_msg.twist.twist.angular.z = delta_theta / delta_time
         ##### YOUR CODE ENDS HERE   ##### # noqa: E266
         # Publish odometry message
         self.odom_pub.publish(self.odom_msg)
@@ -145,7 +175,16 @@ class WheelOdometryNode(Node, TB3Kinematics):
 
         ##### YOUR CODE STARTS HERE ##### # noqa: E266
         # TODO Fill in transform from odom_frame to base_frame
-        pass
+        odom_tf.header.stamp = self.odom_msg.header.stamp
+        odom_tf.header.frame_id = self.odom_frame
+        odom_tf.child_frame_id = self.base_frame
+        odom_tf.transform.translation.x = self.pose[0]
+        odom_tf.transform.translation.y = self.pose[1]
+        odom_tf.transform.translation.z = 0.0
+        odom_tf.transform.rotation.x = 0.0
+        odom_tf.transform.rotation.y = 0.0
+        odom_tf.transform.rotation.z = np.sin(self.pose[2] / 2.0)
+        odom_tf.transform.rotation.w = np.cos(self.pose[2] / 2.0)
         ##### YOUR CODE ENDS HERE   ##### # noqa: E266
 
         # Broadcast transform

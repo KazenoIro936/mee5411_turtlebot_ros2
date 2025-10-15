@@ -19,7 +19,9 @@ class MapConversions:
         self.resolution = resolution
         ##### YOUR CODE STARTS HERE ##### # noqa: E266
         # TODO Create the array shape in the format (# rows, # columns)
-        self.array_shape = (0, 0)
+        NumsofRows = int(np.ceil((boundary[3] - boundary[1]) / resolution))
+        NumsofCols = int(np.ceil((boundary[2] - boundary[0]) / resolution))
+        self.array_shape = (NumsofRows, NumsofCols)
         ##### YOUR CODE ENDS HERE   ##### # noqa: E266
 
     @classmethod
@@ -27,8 +29,12 @@ class MapConversions:
         """Create an object from an OccupancyGrid ROS msg."""
         ##### YOUR CODE STARTS HERE ##### # noqa: E266
         # TODO Extract the boundary and cell resolution from the occupancy grid message
-        boundary = [0, 0, 1, 1]
-        resolution = 1.
+        xmin = msg.info.origin.position.x
+        ymin = msg.info.origin.position.y
+        xmax = xmin + msg.info.width * msg.info.resolution
+        ymax = ymin + msg.info.height * msg.info.resolution
+        boundary = [xmin, ymin, xmax, ymax]
+        resolution = msg.info.resolution
         ##### YOUR CODE ENDS HERE   ##### # noqa: E266
         return cls(boundary, resolution)
 
@@ -46,7 +52,10 @@ class MapConversions:
         """
         ##### YOUR CODE STARTS HERE ##### # noqa: E266
         # TODO Convert data in (row, col) format to ind format
+        num_rows, num_cols = self.array_shape
         inds = -np.ones_like(rows)
+        valid = (rows >= 0) & (rows < num_rows) & (cols >= 0) & (cols < num_cols)
+        inds[valid] = rows[valid] * num_cols + cols[valid]
         ##### YOUR CODE ENDS HERE   ##### # noqa: E266
         return inds
 
@@ -64,8 +73,12 @@ class MapConversions:
         """
         ##### YOUR CODE STARTS HERE ##### # noqa: E266
         # TODO Convert data in ind format to (row, col) format
+        num_rows, num_cols = self.array_shape
         rows = -np.ones_like(inds)
         cols = -np.ones_like(inds)
+        valid = (inds >= 0) & (inds < num_rows * num_cols)
+        rows[valid] = inds[valid] // num_cols
+        cols[valid] = inds[valid] % num_cols
         ##### YOUR CODE ENDS HERE   ##### # noqa: E266
         return rows, cols
 
@@ -84,8 +97,16 @@ class MapConversions:
         """
         ##### YOUR CODE STARTS HERE ##### # noqa: E266
         # TODO Convert data in (x, y) format to (row, col) format
-        rows = -np.ones_like(x)
-        cols = -np.ones_like(y)
+        xmin, ymin, xmax, ymax = self.boundary
+        num_rows, num_cols = self.array_shape
+        res = self.resolution
+        rows = -np.ones_like(x).astype(int)
+        cols = -np.ones_like(y).astype(int)
+        valid = (x >= xmin) & (x <= xmax) & (y >= ymin) & (y <= ymax)
+        cols[valid] = np.floor((x[valid] - xmin) / res)
+        rows[valid] = np.floor((y[valid] - ymin) / res)
+        cols[x == xmax] = num_cols - 1
+        rows[y == ymax] = num_rows - 1
         ##### YOUR CODE ENDS HERE   ##### # noqa: E266
         return rows, cols
 
@@ -104,8 +125,14 @@ class MapConversions:
         """
         ##### YOUR CODE STARTS HERE ##### # noqa: E266
         # TODO Convert data in (row, col) format to (x, y) format
+        xmin, ymin, xmax, ymax = self.boundary
+        num_rows, num_cols = self.array_shape
+        res = self.resolution
         x = np.nan * np.ones_like(rows)
         y = np.nan * np.ones_like(cols)
+        valid = (rows >= 0) & (rows < num_rows) & (cols >= 0) & (cols < num_cols)
+        x[valid] = xmin + (cols[valid] + 0.5) * res
+        y[valid] = ymin + (rows[valid] + 0.5) * res
         ##### YOUR CODE ENDS HERE   ##### # noqa: E266
         return x, y
 

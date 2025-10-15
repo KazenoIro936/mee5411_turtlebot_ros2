@@ -1,4 +1,3 @@
-from rclpy.time import Time
 from sensor_msgs.msg import JointState
 
 import numpy as np
@@ -29,9 +28,11 @@ class TB3Kinematics(TB3Params):
         """
         ##### YOUR CODE STARTS HERE ##### # noqa: E266
         # TODO Calculate the output values
-        delta_wheel_l = 0.0
-        delta_wheel_r = 0.0
-        delta_time = 0.0
+        t_new = new_joint_states.header.stamp.sec + new_joint_states.header.stamp.nanosec * 1e-9
+        t_prev = prev_joint_states.header.stamp.sec + prev_joint_states.header.stamp.nanosec * 1e-9
+        delta_time = t_new - t_prev
+        delta_wheel_l = new_joint_states.position[0] - prev_joint_states.position[0]
+        delta_wheel_r = new_joint_states.position[1] - prev_joint_states.position[1]
         ##### YOUR CODE ENDS HERE   ##### # noqa: E266
 
         # Data validation
@@ -58,8 +59,10 @@ class TB3Kinematics(TB3Params):
         """
         ##### YOUR CODE STARTS HERE ##### # noqa: E266
         # TODO Calculate the output values
-        delta_s = 0.0  # linear displacement [m]
-        delta_theta = 0.0  # angular displacement [rad]
+        delta_s_l = delta_wheel_l * self.wheel_radius
+        delta_s_r = delta_wheel_r * self.wheel_radius
+        delta_s = (delta_s_r + delta_s_l) / 2.0
+        delta_theta = (delta_s_r - delta_s_l) / self.wheel_separation
         ##### YOUR CODE ENDS HERE   ##### # noqa: E266
 
         return (delta_s, delta_theta)
@@ -81,7 +84,11 @@ class TB3Kinematics(TB3Params):
         """
         ##### YOUR CODE STARTS HERE ##### # noqa: E266
         # TODO Calculate the output values
-        pose = prev_pose  # FILL THIS IN
+        x_prev, y_prev, theta_prev = prev_pose
+        x_new = x_prev + delta_s * np.cos(theta_prev + delta_theta / 2.0)
+        y_new = y_prev + delta_s * np.sin(theta_prev + delta_theta / 2.0)
+        theta_new = theta_prev + delta_theta
+        pose = [x_new, y_new, theta_new]
         ##### YOUR CODE ENDS HERE   ##### # noqa: E266
 
         return pose

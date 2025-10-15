@@ -65,13 +65,21 @@
     </node>
 
     <!-- Odometry -->
-    <node name="turtlebot3_fake_node"
+    <!-- <node name="turtlebot3_fake_node"
           pkg="turtlebot3_fake_node"
           exec="turtlebot3_fake_node"
           output="screen">
         <param from="$(find-pkg-share turtlebot3_fake_node)/param/$(env TURTLEBOT3_MODEL).yaml"/>
         <param name="use_sim_time" value="$(var use_sim_time)"/>
-    </node>
+    </node> -->
+    <node name="wheel_odometry" 
+          pkg="wheel_odometry" 
+          exec="wheel_odometry" 
+          output="screen">
+        <param name="base_frame" value="base_footprint"/>
+        <param name="odom_frame" value="odom"/>
+        <param name="tb3_model" value="$(env TURTLEBOT3_MODEL)"/>
+     </node>
 
     <!-- Localization -->
     <node name="localization_fake"

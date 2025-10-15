@@ -73,6 +73,7 @@ class CollisionDetectionNode(Node):
 
         # Map
         self.lock = Lock()
+        self.map_frame_id = None
         if self.get_parameter('use_map_topic').get_parameter_value().bool_value:
             latching_qos = QoSProfile(depth=1, durability=QoSDurabilityPolicy.TRANSIENT_LOCAL)
             self.map_sub = self.create_subscription(
@@ -97,6 +98,9 @@ class CollisionDetectionNode(Node):
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
 
         # Make sure the transformation between the map and robot exists
+        while rclpy.ok() and self.map_frame_id is None:
+            self.get_logger().info('Waiting for map to be received', once=True)
+            self.get_clock().sleep_for(Duration(seconds=0.1))
         future = self.tf_listener.buffer.wait_for_transform_async(
             self.robot_frame_id,
             self.map_frame_id,
@@ -112,11 +116,11 @@ class CollisionDetectionNode(Node):
         """Prepare the map for collision detection."""
         with self.lock:
             self.get_logger().info('Received map')
-            if not self.map_conversions_implemented:
-                return
             # Store map info
             self.map_frame_id = msg.header.frame_id
             self.resolution = msg.info.resolution
+            if not self.map_conversions_implemented:
+                return
             # Find objects in map
             objs = np.argwhere(np.array(msg.data) > self.occupancy_threshold)
             mc = MapConversions.from_msg(msg)
@@ -188,3 +192,4 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+    

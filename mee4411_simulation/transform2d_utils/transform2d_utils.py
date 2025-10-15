@@ -17,7 +17,9 @@ def transform2xyt(T: Transform) -> Tuple[float, float, float]:
     """
     ##### YOUR CODE STARTS HERE ##### # noqa: E266
     # TODO fill x, y, theta in with correct values
-    x = y = theta = 0.0
+    x = T.translation.x
+    y = T.translation.y
+    theta = np.arctan2(T.rotation.z, T.rotation.w) * 2.0
     ##### YOUR CODE ENDS HERE ##### # noqa: E266
     return (x, y, theta)
 
@@ -36,7 +38,13 @@ def xyt2transform(x: float, y: float, theta: float) -> Transform:
     T = Transform()
     ##### YOUR CODE STARTS HERE ##### # noqa: E266
     # TODO fill in the transform
-    pass
+    T.translation.x = x
+    T.translation.y = y
+    T.translation.z = 0.0
+    T.rotation.w = np.cos(theta / 2.0)
+    T.rotation.x = 0.0
+    T.rotation.y = 0.0
+    T.rotation.z = np.sin(theta / 2.0)
     ##### YOUR CODE ENDS HERE ##### # noqa: E266
     return T
 
@@ -54,7 +62,9 @@ def homogeneous2xyt(T: np.ndarray) -> Tuple[float, float, float]:
     """
     ##### YOUR CODE STARTS HERE ##### # noqa: E266
     # TODO fill in x, y, theta with correct values
-    x = y = theta = 0.0
+    x = T[0, 2]
+    y = T[1, 2]
+    theta = np.arctan2(T[1, 0], T[0, 0])
     ##### YOUR CODE ENDS HERE ##### # noqa: E266
     return (x, y, theta)
 
@@ -73,6 +83,13 @@ def xyt2homogeneous(x: float, y: float, theta: float) -> Tuple[np.ndarray]:
     ##### YOUR CODE STARTS HERE ##### # noqa: E266
     # TODO fill in with the correct formula
     T = np.zeros((3, 3))
+    T[0, 0] = np.cos(theta)
+    T[0, 1] = -np.sin(theta)
+    T[0, 2] = x
+    T[1, 0] = np.sin(theta)
+    T[1, 1] = np.cos(theta)
+    T[1, 2] = y
+    T[2, 2] = 1.0
     ##### YOUR CODE ENDS HERE ##### # noqa: E266
     return T
 

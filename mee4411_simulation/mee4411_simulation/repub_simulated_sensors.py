@@ -87,7 +87,7 @@ class SimRepub(Node, TB3Params):
         if self.noise_std_ > 0.0:
             if self.prev_joint_state_ is not None:
                 # Get timing information
-                dt = (Time.from_msg(msg.header.stamp).nanoseconds - 
+                dt = (Time.from_msg(msg.header.stamp).nanoseconds -
                       Time.from_msg(self.prev_joint_state_.header.stamp).nanoseconds) / 1e9
                 if self.joint_state_rate_ is None:
                     self.joint_state_rate_ = dt

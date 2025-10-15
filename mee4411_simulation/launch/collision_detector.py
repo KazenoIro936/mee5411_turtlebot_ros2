@@ -27,7 +27,7 @@ def generate_launch_description():
         emulate_tty=True,  # for colored output
         parameters=[
             {'tb3_model': EnvironmentVariable('TURTLEBOT3_MODEL')},
-            {'map_conversions_implemented': False}
+            {'map_conversions_implemented': True}
         ]
     )
 

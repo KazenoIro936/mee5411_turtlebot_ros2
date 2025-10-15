@@ -1,0 +1,28 @@
+/**:
+  ros__parameters:
+    boundary: [0.0, 0.0, 10.0, 10.0]
+    blocks: [
+      # Eyes (large, centered a bit lower)
+      2.0, 6.0, 3.5, 7.5, # left eye
+      6.5, 6.0, 8.0, 7.5, # right eye
+
+      # Eyebrows (thicker, higher above eyes)
+      1.8, 8.5, 3.7, 9.0, # left eyebrow
+      6.3, 8.5, 8.2, 9.0, # right eyebrow
+
+      # Nose
+      4.7, 5.0, 5.3, 6.0, # nose block
+
+      # Mouth (shorter base + smoother curve)
+      3.5, 2.0, 6.5, 2.2, # shorter center line
+      3.0, 2.2, 4.0, 2.4, # left slope
+      6.0, 2.2, 7.0, 2.4, # right slope
+      2.6, 2.4, 3.5, 2.6, # left upper curve
+      6.5, 2.4, 7.4, 2.6, # right upper curve
+      2.2, 2.6, 3.0, 2.8, # left corner (highest point)
+      7.0, 2.6, 7.8, 2.8, # right corner (highest point)
+
+      # Cheeks
+      1.0, 4.0, 2.0, 5.0, # left cheek
+      8.0, 4.0, 9.0, 5.0 # right cheek
+    ]

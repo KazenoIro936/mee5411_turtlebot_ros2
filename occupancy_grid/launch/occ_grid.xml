@@ -4,10 +4,10 @@
         default="map" 
         description="Name of the coordinate frame associated with the map"/>
   <arg name="resolution"
-        default="0.25"
+        default="0.66"
         description="Size of the cells in the occupancy grid in meters"/>
   <arg name="filename"
-        default="$(find-pkg-share occupancy_grid)/maps/map0.yaml"
+        default="$(find-pkg-share occupancy_grid)/maps/map4.yaml"
         description="Name of the file containing the environment description"/>
 
   <node name="create_occupancy_grid" 
