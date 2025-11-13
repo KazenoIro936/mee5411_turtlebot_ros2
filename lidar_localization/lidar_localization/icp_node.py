@@ -168,10 +168,25 @@ class ICPLocalizationNode(Node):
 
         ##### YOUR CODE STARTS HERE ##### # noqa: E266
         # TODO Extract the locations of all objects in the map
-        pass
-
+        self.get_logger().info(
+            f"[ICP INIT] ogm boundary={self.ogm.boundary}, shape={self.ogm.data.shape}, "
+            f"frame={self.ogm.frame_id}"
+        )
+        pts_xy = self.ogm.where_occupied(format='xy', threshold=50)
+        # self.get_logger().info(f"[ICP INIT] points: {pts_xy.shape[0]} and {pts_xy.shape[1]}")
+        # origin_tf = Transform()
+        # origin_tf.translation.x = map.info.origin.position.x
+        # origin_tf.translation.y = map.info.origin.position.y
+        # origin_tf.translation.z = map.info.origin.position.z
+        # origin_tf.rotation = map.info.origin.orientation
+        # origin_T = tf2d.transform2homogeneous(origin_tf)
+        # pts_h = np.vstack((pts_xy.T, np.ones((1, pts_xy.shape[0]))))  # 3×K
+        # self.get_logger().info(f"[ICP INIT] pts_h: {pts_h.shape[0]} and {pts_h.shape[1]}")
+        # pts_map = (origin_T @ pts_h)[:2, :].astype(np.float32)        # 2×K
+        # self.get_logger().info(f"[ICP INIT] pts_map: {pts_map.shape[0]} and {pts_map.shape[1]}")
+        pts_map = pts_xy.T.astype(np.float32)
         # TODO use those points to inialize the ICP using the set_map_points method
-        pass
+        self.icp.set_map_points(pts_map)
         ##### YOUR CODE ENDS HERE   ##### # noqa: E266
 
     def map_callback(self, msg: OccupancyGrid) -> None:
@@ -184,7 +199,8 @@ class ICPLocalizationNode(Node):
             None
         """
         with self.lock:
-            self.ogm = OccupancyGridMap(msg)
+            # self.ogm = OccupancyGridMap(msg)
+            self.ogm = OccupancyGridMap.from_msg(msg)
             self.have_map = True
             self.initialize_icp(msg)
 
@@ -205,10 +221,11 @@ class ICPLocalizationNode(Node):
         """
         ##### YOUR CODE STARTS HERE ##### # noqa: E266
         # TODO Fill in the current time
-        pass
+        self.tf_map_odom.header.stamp = time.to_msg()
 
         # TODO Fill in the current transform (using the x, y, theta in self.pose)
-        pass
+        x, y, theta = self.pose
+        self.tf_map_odom.transform = tf2d.xyt2transform(x, y, theta)
         ##### YOUR CODE ENDS HERE   ##### # noqa: E266
 
         # Publish the transform
@@ -254,21 +271,57 @@ class ICPLocalizationNode(Node):
         ##### YOUR CODE STARTS HERE ##### # noqa: E266
         # TODO Convert lidar all points to (x,y)
         # NOTE You should only keep points that are between the minimum and maximum range
-        pass
+        ranges = np.asarray(msg.ranges, dtype=np.float32)
+        n = ranges.shape[0]
+        angles = msg.angle_min + np.arange(n, dtype=np.float32) * msg.angle_increment
+        valid = np.isfinite(ranges) & (ranges >= msg.range_min) & (ranges <= msg.range_max)
+        r = ranges[valid]
+        a = angles[valid]
+        x_l = r * np.cos(a)
+        y_l = r * np.sin(a)
+        pts_lidar = np.vstack((x_l, y_l))
+        if pts_lidar.size == 0:
+            return
 
         # TODO Lookup transformation from odom to lidar coordiante frame
-        pass
+        odom_frame = self.tf_map_odom.child_frame_id
+        stamp = Time.from_msg(msg.header.stamp) - self.tf_time_travel
+
+        try:
+            if not self.tf_buffer.can_transform(odom_frame, self.sensor_frame_id, stamp):
+                # self.get_logger().warn("TF not ready, using latest")
+                tf_odom_lidar = self.tf_buffer.lookup_transform(
+                    odom_frame, self.sensor_frame_id, rclpy.time.Time())
+            else:
+                tf_odom_lidar = self.tf_buffer.lookup_transform(
+                    odom_frame, self.sensor_frame_id, stamp)
+        except Exception as e:
+            self.get_logger().warn(f"TF lookup failed ({type(e).__name__}): {e}")
+            tf_odom_lidar = self.tf_buffer.lookup_transform(
+                odom_frame, self.sensor_frame_id, rclpy.time.Time())
+
+        # tf_odom_lidar = self.tf_buffer.lookup_transform(
+        #     odom_frame,               # target frame
+        #     self.sensor_frame_id,     # source frame
+        #     stamp)
 
         # TODO Use the transformation to transform the lidar points into the odom coordinate frame
-        pass
+        T_odom_lidar = tf2d.transform2homogeneous(tf_odom_lidar.transform)
+        pts_h = np.vstack((pts_lidar, np.ones((1, pts_lidar.shape[1]))))
+        pts_odom = (T_odom_lidar @ pts_h)[:2, :]
 
         # TODO Use ICP to find pose of odom with respect to the map
+        init_T = tf2d.xyt2homogeneous(*self.pose)
         with self.lock:
             # NOTE need to do this inside of the lock to ensure correct operation
-            pass
+            T_map_odom, mean_error, iters = self.icp.icp(
+                pts_odom.astype(np.float32),
+                init_pose=init_T.astype(np.float32),
+                max_iterations=50,
+                tolerance=self.tolerance)
 
         # TODO Update self.pose using the transformation found by ICP
-        pass
+        self.pose = tf2d.homogeneous2xyt(T_map_odom)
         ##### YOUR CODE ENDS HERE   ##### # noqa: E266
 
         # Publish transform

@@ -82,15 +82,18 @@
      </node>
 
     <!-- Localization -->
-    <node name="localization_fake"
-          pkg="tf2_ros"
-          exec="static_transform_publisher" 
-          args="--x $(var initial_pose_x)
-                --y $(var initial_pose_y)
-                --yaw $(var initial_pose_a)
-                --frame-id /map 
-                --child-frame-id /odom" >
-        <param name="use_sim_time" value="$(var use_sim_time)"/>
+    <node
+      pkg="lidar_localization"
+      exec="icp_node"
+      name="icp_localization"
+      output="screen">
+      <param name="initial_pose_x" value="$(var initial_pose_x)"/>
+      <param name="initial_pose_y" value="$(var initial_pose_y)"/>
+      <param name="initial_pose_a" value="$(var initial_pose_a)"/>
+      <param name="odom_frame" value="odom"/>
+      <param name="time_travel" value="0.1"/>
+      <param name="use_map_topic" value="False"/>
+      <param name="use_sim_time" value="$(var use_sim_time)"/>
     </node>
 
     <!-- Global planning -->

@@ -55,25 +55,35 @@ class ICP2D:
 
         ##### YOUR CODE STARTS HERE ##### # noqa: E266
         # TODO Extract corresponding points from self.map_pts and store in the variable map
-        map = pts
+        map = self.map_pts[:, indices]
 
         # Check to make sure you have the same number of points
         assert pts.shape == map.shape
 
         # TODO Translate point sets (pts, map) to their centroids
-        pass
+        p_centroid = np.mean(pts, axis=1, keepdims=True)
+        m_centroid = np.mean(map, axis=1, keepdims=True)
+        pts_centered = pts - p_centroid
+        map_centered = map - m_centroid
 
         # TODO Use the SVD to find the rotation matrix using the np.linalg.svd function
-        pass
+        # H = pts_centered @ map_centered.T
+        H = pts_centered @ map_centered.T
+        U, S, Vt = np.linalg.svd(H)
+        R = Vt.T @ U.T
 
         # TODO Make sure det(R) > 0, if not, multiply the last column of Vt by -1 and recalculate R
-        pass
+        if np.linalg.det(R) < 0:
+            Vt[-1, :] *= -1
+            R = Vt.T @ U.T
 
         # TODO Find the translation vector using the formula to calculate the translation vector
-        pass
+        t = m_centroid - R @ p_centroid
 
         # TODO Fill in the homogeneous transformation
-        T = np.identity(3)
+        T = np.eye(3)
+        T[:2, :2] = R
+        T[:2, 2] = t.flatten()
 
         ##### YOUR CODE ENDS HERE   ##### # noqa: E266
         error = np.mean(distances)
@@ -101,32 +111,39 @@ class ICP2D:
         # Get number of dimensions and ensure that it is correct
         m = pts.shape[0]
         assert m == 2, 'Points must be formatted as 2xN numpy arrays'
-        m = pts.shape[1]
-        assert m == 2, 'Points must be formatted as Nx2 numpy arrays'
+        # m = pts.shape[1]
+        # assert m == 2, 'Points must be formatted as Nx2 numpy arrays'
 
         # Initialize the transformation
         T = np.eye(3)  # initialize identity transformation
 
         ##### YOUR CODE STARTS HERE ##### # noqa: E266
         # TODO Make points homogeneous, copy them to maintain the originals
+        if pts.shape[0] == 2:
+            pts_2xn = pts
+        elif pts.shape[1] == 2:
+            pts_2xn = pts.T
+        src_hom = np.vstack([pts_2xn, np.ones((1, pts_2xn.shape[1]))])
         # TODO See if there an initial pose estimate, if so then fill it in
-        pass
+        if init_pose is not None:
+            T = init_pose.copy()
+            src_hom = T @ src_hom
 
         # TODO Apply the initial pose estimate to the points (pts)
-        pass
+        # src_hom = T @ src_hom
 
         # TODO Apply the initial pose estimate
-        pass
+        # src_hom = T @ src_hom
 
         # Run ICP
         prev_error = 1e6  # initialize to a large number
         for i in range(max_iterations):
             # TODO Compute the TF between the current source and nearest destination points
-            pass
-            mean_error = 0  # TODO replace this with the output of best_fit_transform
+            T_delta, mean_error = self.best_fit_transform(src_hom[:2, :])
 
             # TODO Update the current estimated transofmration and point locations using T_delta
-            pass
+            T = T_delta @ T
+            src_hom = T_delta @ src_hom
             ##### YOUR CODE ENDS HERE   ##### # noqa: E266
 
             # Check error

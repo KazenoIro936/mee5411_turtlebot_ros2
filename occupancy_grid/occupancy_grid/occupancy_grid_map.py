@@ -21,16 +21,6 @@ class OccupancyGridMap(MapConversions):
         """Create an object from an OccupancyGrid msg."""
         ##### YOUR CODE STARTS HERE ##### # noqa: E266
         # TODO Extract boundary, resolution, and frame_id from input message
-        boundary = [0., 0., 1., 1.]
-        resolution = 1.
-        frame_id = 'frame'
-        ##### YOUR CODE ENDS HERE   ##### # noqa: E266
-
-        # Initialize object
-        ogm = cls(boundary, resolution, frame_id)
-
-        ##### YOUR CODE STARTS HERE ##### # noqa: E266
-        # TODO Update data array in ogm, based on conventions in the __init__ method
         resolution = msg.info.resolution
         xmin = msg.info.origin.position.x
         ymin = msg.info.origin.position.y
@@ -38,6 +28,14 @@ class OccupancyGridMap(MapConversions):
         ymax = ymin + msg.info.height * resolution
         boundary = [xmin, ymin, xmax, ymax]
         frame_id = msg.header.frame_id
+        ##### YOUR CODE ENDS HERE   ##### # noqa: E266
+
+        # Initialize object
+        ogm = cls(boundary, resolution, frame_id)
+
+        ##### YOUR CODE STARTS HERE ##### # noqa: E266
+        # TODO Update data array in ogm, based on conventions in the __init__ method
+        ogm.data = np.array(msg.data).reshape((msg.info.height, msg.info.width))
         ##### YOUR CODE ENDS HERE   ##### # noqa: E266
         return ogm
 
@@ -156,6 +154,6 @@ class OccupancyGridMap(MapConversions):
             locations = self.sub2ind(rows, cols)
         elif format == 'xy':
             x, y = self.sub2xy(rows, cols)
-        locations = np.vstack((x, y)).T
+            locations = np.vstack((x, y)).T
         ##### YOUR CODE ENDS HERE   ##### # noqa: E266
         return locations
