@@ -8,6 +8,9 @@ This package contains a simple 2D iterative closest point (ICP) based localizati
 2. Convert between different 2D transform representations (Transform messages, homogeneous matrices, $x,y,\theta$).
 3. Integrate an algorithm with ROS2: subscribe to sensors, use transforms, and publish TFs.
 
+# Pre-Requisites
+You need to have completed the `MapConversions` and `OccupancyGridMap` classes from the [occupancy grid map](../occupancy_grid/README.md) module.
+
 # Dependencies
 
 This package requires an additional Python module, [`scikit-learn`](https://scikit-learn.org/stable/).

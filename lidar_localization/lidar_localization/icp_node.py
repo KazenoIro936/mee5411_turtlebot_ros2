@@ -6,6 +6,7 @@ from rclpy.time import Time
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType
 import tf2_ros
 
+from builtin_interfaces.msg import Time as TimeMsg
 from geometry_msgs.msg import (
     PoseWithCovarianceStamped,
     Transform,
@@ -86,6 +87,9 @@ class ICPLocalizationNode(Node):
         self.tolerance = None  # tolerance for fitting
         self.lock = Lock()  # to ensure ICP object can be locked
 
+        # Publishers
+        self.pose_pub = self.create_publisher(PoseWithCovarianceStamped, 'icp_pose', 10)
+
         # Subscribers
         self.sensor_frame_id = None  # frame ID of the lidar
         self.scan_sub = self.create_subscription(LaserScan, 'scan', self.scan_callback, 10)
@@ -109,7 +113,7 @@ class ICPLocalizationNode(Node):
             # Get map from map server
             map_client = self.create_client(GetMap, 'map_server/map')
             map_client.wait_for_service()
-            self.get_clock().sleep_for(rclpy.time.Duration(seconds=1.0))
+            self.get_clock().sleep_for(Duration(seconds=1.0))
             future = map_client.call_async(GetMap.Request())
             rclpy.spin_until_future_complete(self, future)
             if future.result() is None:
@@ -144,6 +148,9 @@ class ICPLocalizationNode(Node):
         self.have_transform = True
         self.get_logger().info(
             f'Got transform from {self.tf_map_odom.child_frame_id} to {self.sensor_frame_id}')
+
+        # Publish the initial transform
+        self.publish_map_odom_tf(self.get_clock().now().to_msg())
 
     def initialize_icp(self, map: OccupancyGrid) -> None:
         """
@@ -204,12 +211,12 @@ class ICPLocalizationNode(Node):
             self.have_map = True
             self.initialize_icp(msg)
 
-    def publish_map_odom_tf(self, time: Time) -> None:
+    def publish_map_odom_tf(self, time: TimeMsg) -> None:
         """
         Update the current transform from the map to odom frames stored in self.tf_map_odom.
 
         Inputs:
-            time: the time to stamp the transform with (rclpy.time.Time)
+            time: the time to stamp the transform with (builtin_interfaces.msg.Time)
         Outputs:
             None
 
@@ -231,6 +238,31 @@ class ICPLocalizationNode(Node):
         # Publish the transform
         self.tf_broadcaster.sendTransform(self.tf_map_odom)
 
+    def publish_pose(self, stamp: TimeMsg) -> None:
+        """
+        Publish the current pose as a PoseWithCovarianceStamped message.
+
+        Inputs:
+            stamp: the time to stamp the pose message with (builtin_interfaces.msg.Time)
+        Outputs:
+            None
+
+        This function should:
+            1. Fill in the pose message
+            2. Publish the message using self.pose_pub
+        """
+        # Initialize pose message
+        pose_msg = PoseWithCovarianceStamped()
+        # Initialize covariance to reasonable values
+        pose_msg.pose.covariance = np.diag((0.1, 0.1, 0.0, 0.0, 0.0, 0.2)).flatten().tolist()
+        ##### YOUR CODE STARTS HERE ##### # noqa: E266
+        # TODO Fill in the pose message
+        pass
+
+        # TODO Publish the message using self.pose_pub
+        pass
+        ##### YOUR CODE ENDS HERE   ##### # noqa: E266
+
     def initialpose_callback(self, msg: PoseWithCovarianceStamped) -> None:
         """Process an incoming initial pose message."""
         # Convert from a Pose to a Transform
@@ -240,6 +272,7 @@ class ICPLocalizationNode(Node):
         self.pose = tf2d.transform2xyt(T)
         # Publish the pose
         self.publish_map_odom_tf(msg.header.stamp)
+        self.publish_pose(msg.header.stamp)
 
     def scan_callback(self, msg: LaserScan) -> None:
         """
@@ -325,7 +358,8 @@ class ICPLocalizationNode(Node):
         ##### YOUR CODE ENDS HERE   ##### # noqa: E266
 
         # Publish transform
-        self.publish_map_odom_tf(Time.from_msg(msg.header.stamp))
+        self.publish_map_odom_tf(msg.header.stamp)
+        self.publish_pose(msg.header.stamp)
 
 
 def main(args=None):

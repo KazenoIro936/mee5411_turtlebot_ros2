@@ -6,6 +6,9 @@ This package implements wheel odometry for the TurtleBot3 models used in the cou
 sudo apt install ros-humble-turtlebot3
 ```
 
+# Pre-Requisites
+None
+
 # File Layout
 
 This directory contains the following files and folders:

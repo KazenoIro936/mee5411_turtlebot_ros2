@@ -8,6 +8,9 @@ You will create a node that can generate occupancy grid maps from text file desc
 2. Practice reading files in code
 3. Create and publish a ROS message
 
+# Pre-Requisites
+None
+
 # Starter Code Structure
 
 The `occupancy_grid` package contains the following folders and files:

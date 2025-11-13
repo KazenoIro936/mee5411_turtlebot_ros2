@@ -168,7 +168,7 @@ Visualization Manager:
             Filter size: 10
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /ground_truth/scan
+            Value: /scan
           Use Fixed Frame: true
           Use rainbow: true
           Value: true
@@ -270,6 +270,34 @@ Visualization Manager:
             Reliability Policy: Reliable
             Value: /odom
           Value: true
+        - Alpha: 1
+          Buffer Length: 1
+          Class: rviz_default_plugins/Path
+          Color: 25; 255; 0
+          Enabled: true
+          Head Diameter: 0.30000001192092896
+          Head Length: 0.20000000298023224
+          Length: 0.30000001192092896
+          Line Style: Lines
+          Line Width: 0.15000000596046448
+          Name: Path
+          Offset:
+            X: 0
+            Y: 0
+            Z: 0
+          Pose Color: 255; 85; 255
+          Pose Style: None
+          Radius: 0.029999999329447746
+          Shaft Diameter: 0.10000000149011612
+          Shaft Length: 0.10000000149011612
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /received_global_plan
+          Value: true
       Enabled: true
       Name: Simulated Robot
     - Class: rviz_common/Group
@@ -283,10 +311,10 @@ Visualization Manager:
           Axis: Z
           Channel Name: intensity
           Class: rviz_default_plugins/LaserScan
-          Color: 255; 255; 255
-          Color Transformer: Intensity
+          Color: 0; 0; 255
+          Color Transformer: FlatColor
           Decay Time: 0
-          Enabled: false
+          Enabled: true
           Invert Rainbow: false
           Max Color: 255; 255; 255
           Max Intensity: 4096
@@ -296,7 +324,7 @@ Visualization Manager:
           Position Transformer: XYZ
           Selectable: true
           Size (Pixels): 3
-          Size (m): 0.10000000149011612
+          Size (m): 0.029999999329447746
           Style: Flat Squares
           Topic:
             Depth: 5
@@ -307,7 +335,7 @@ Visualization Manager:
             Value: /ground_truth/scan
           Use Fixed Frame: true
           Use rainbow: true
-          Value: false
+          Value: true
         - Alpha: 0.25
           Class: rviz_default_plugins/RobotModel
           Collision Enabled: false
@@ -408,6 +436,18 @@ Visualization Manager:
           Value: true
       Enabled: true
       Name: Ground Truth
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: PRM
+      Namespaces:
+        {}
+      Topic:
+        Depth: 5
+        Durability Policy: Transient Local
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /planner_server/graph
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -454,16 +494,16 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 4.8282294273376465
+      Distance: 13.148062705993652
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -1.7817567586898804
-        Y: -0.9134505987167358
-        Z: -1.701406478881836
+        X: -2.755866289138794
+        Y: 2.368898868560791
+        Z: -2.597867012023926
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
@@ -472,7 +512,7 @@ Visualization Manager:
       Pitch: 0.7703980207443237
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 0.5503977537155151
+      Yaw: 0.5453977584838867
     Saved: ~
 Window Geometry:
   Displays:
@@ -490,5 +530,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1268
-  X: 464
-  Y: 233
+  X: 988
+  Y: 370

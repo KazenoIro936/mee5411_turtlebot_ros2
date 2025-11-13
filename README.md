@@ -7,3 +7,4 @@ The intended order to work through the projects is:
 2. [2D Transformations](mee4411_simulation/README.md)
 3. [Wheel Odometry](wheel_odometry/README.md)
 4. [Lidar Localization](lidar_localization/README.md)
+5. [Global Planning](global_planning/README.md)

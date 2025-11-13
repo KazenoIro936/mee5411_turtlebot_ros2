@@ -26,20 +26,16 @@
     <arg name="map_conversions_implemented"
          default="True"
          description="Whether map conversions have been implemented"/>
+    <arg name="use_nav2_planner"
+         default="True"
+         description="Whether to use nav2 planner"/>
     <arg name="use_sim_time"
          default="False"
          description="Whether to use simulation time"/>
 
-    <!-- Map -->
-    <include file="$(find-pkg-share occupancy_grid)/launch/map_server.py">
-        <arg name="map_filename" value="$(var map_filename)"/>
-        <arg name="delay" value="5.0"/>
-        <arg name="use_sim_time" value="$(var use_sim_time)"/>
-    </include>
-
-     <!-- Robot file -->
-     <let name="urdf"
-          value="$(find-pkg-share turtlebot3_description)/urdf/turtlebot3_$(env TURTLEBOT3_MODEL).urdf"/>
+    <!-- Robot file -->
+    <let name="urdf"
+         value="$(find-pkg-share turtlebot3_description)/urdf/turtlebot3_$(env TURTLEBOT3_MODEL).urdf"/>
 
     <!-- Simulated Robot -->
     <group>
@@ -96,6 +92,14 @@
       <param name="use_sim_time" value="$(var use_sim_time)"/>
     </node>
 
+    <!-- Navigation -->
+    <include file="$(find-pkg-share mee4411_simulation)/launch/navigation_launch.py">
+        <arg name="use_sim_time" value="$(var use_sim_time)"/>
+        <arg name="map_filename" value="$(var map_filename)"/>
+        <arg name="params_file" value="$(find-pkg-share turtlebot3_navigation2)/param/humble/$(env TURTLEBOT3_MODEL).yaml"/>
+        <arg name="use_planner" value="$(var use_nav2_planner)"/>
+    </include>
+
     <!-- Global planning -->
 
     <!-- Local controller -->
@@ -104,6 +108,7 @@
     <include file="$(find-pkg-share mee4411_simulation)/launch/collision_detector.py">
         <arg name="map_conversions_implemented" value="$(var map_conversions_implemented)"/>
         <arg name="use_sim_time" value="$(var use_sim_time)"/>
+        <arg name="sim_namespace" value="$(var sim_namespace)"/>
     </include>
 
     <!-- Robot visualization -->
