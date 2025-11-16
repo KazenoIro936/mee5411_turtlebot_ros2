@@ -89,6 +89,8 @@ class SimRepub(Node, TB3Params):
                 # Get timing information
                 dt = (Time.from_msg(msg.header.stamp).nanoseconds -
                       Time.from_msg(self.prev_joint_state_.header.stamp).nanoseconds) / 1e9
+                if dt <= 0.0:
+                    dt = 1e-6  # prevent issues with time going backwards
                 if self.joint_state_rate_ is None:
                     self.joint_state_rate_ = dt
                 else:
