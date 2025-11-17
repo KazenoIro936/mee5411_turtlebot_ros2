@@ -228,7 +228,7 @@ class ICPLocalizationNode(Node):
         """
         ##### YOUR CODE STARTS HERE ##### # noqa: E266
         # TODO Fill in the current time
-        self.tf_map_odom.header.stamp = time.to_msg()
+        self.tf_map_odom.header.stamp = time
 
         # TODO Fill in the current transform (using the x, y, theta in self.pose)
         x, y, theta = self.pose
@@ -257,10 +257,15 @@ class ICPLocalizationNode(Node):
         pose_msg.pose.covariance = np.diag((0.1, 0.1, 0.0, 0.0, 0.0, 0.2)).flatten().tolist()
         ##### YOUR CODE STARTS HERE ##### # noqa: E266
         # TODO Fill in the pose message
-        pass
-
+        x, y, theta = self.pose
+        transform = tf2d.xyt2transform(x, y, theta)
+        pose_msg.pose.pose.position.x = transform.translation.x
+        pose_msg.pose.pose.position.y = transform.translation.y
+        pose_msg.pose.pose.position.z = transform.translation.z
+        pose_msg.pose.pose.orientation = transform.rotation
         # TODO Publish the message using self.pose_pub
-        pass
+
+        self.pose_pub.publish(pose_msg)
         ##### YOUR CODE ENDS HERE   ##### # noqa: E266
 
     def initialpose_callback(self, msg: PoseWithCovarianceStamped) -> None:

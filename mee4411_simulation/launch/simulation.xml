@@ -101,7 +101,20 @@
     </include>
 
     <!-- Global planning -->
-
+     <node
+          pkg="global_planning"
+          exec="prm_node"
+          name="planner_service"
+          output="screen"
+          unless="$(var use_nav2_planner)">
+          <param name="robot_frame"        value="base_footprint"/>
+          <param name="show_prm"           value="True"/>
+          <param name="publish_every_n"    value="20"/>
+          <param name="connection_radius"  value="1.0"/>
+          <param name="step_size"          value="0.01"/>
+          <param name="num_points"         value="1000"/>
+          <param name="use_sim_time"       value="$(var use_sim_time)"/>
+     </node>
     <!-- Local controller -->
 
     <!-- Collision detection -->

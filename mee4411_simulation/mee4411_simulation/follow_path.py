@@ -44,7 +44,7 @@ class FollowPathNode(BasicNavigator):
         self._waitForInitialPose()
 
     def goal_callback(self, msg: PoseStamped) -> None:
-        """Callback function for goal pose subscriber."""
+        """Handle a new goal pose from the subscriber."""
         print(f'Received new goal pose: {msg.pose.position.x}, {msg.pose.position.y}')
 
         # Get the current robot pose

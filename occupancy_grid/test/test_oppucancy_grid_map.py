@@ -15,8 +15,10 @@ def make_og_msg_2x3(frame_id="map"):
       origin at (0,0) with identity orientation
       data is row-major (r0c0, r0c1, r0c2, r1c0, r1c1, r1c2)
       Set 2nd and 4th cells to 100: indices 1 and 3
-         data = [0, 100, 0,
-                 100, 0,   0]
+      Set last cell (index 5) to -1 (unknown, which we now treat as occupied):
+
+         data = [0,   100, 0,
+                 100, 0,   -1]
     """
     msg = OccupancyGrid()
     msg.header = Header()
@@ -37,8 +39,8 @@ def make_og_msg_2x3(frame_id="map"):
     msg.info.origin.orientation.w = 1.0
 
     # row-major: [r0c0, r0c1, r0c2, r1c0, r1c1, r1c2]
-    msg.data = [0, 100, 0,
-                100, 0,   0]
+    msg.data = [0,   100, 0,
+                100, 0,   -1]  # <- last cell unknown
     return msg
 
 
@@ -54,8 +56,8 @@ def test_from_msg_basic_fields():
     assert ogm.data.shape == (2, 3), f"Data shape wrong: {ogm.data.shape}"
 
     # Data reshaped (height, width) with values as provided
-    expected = np.array([[0, 100, 0],
-                         [100, 0, 0]])
+    expected = np.array([[0,   100, 0],
+                         [100,   0, -1]])
     assert np.array_equal(ogm.data, expected), f"Data mismatch:\n{ogm.data}\n!=\n{expected}"
 
 
@@ -64,9 +66,12 @@ def test_where_occupied_formats():
     msg = make_og_msg_2x3()
     ogm = OccupancyGridMap.from_msg(msg)
 
-    # Occupied cells are (r,c) = (0,1) and (1,0)
-    rows_cols_true = np.array([[0, 1],
-                               [1, 0]])
+    # Occupied cells are (r,c) = (0,1), (1,0), and (1,2) (unknown=-1 treated as occupied)
+    rows_cols_true = np.array([
+        [0, 1],
+        [1, 0],
+        [1, 2],
+    ])
 
     # rc format
     rc = ogm.where_occupied(format='rc', threshold=50)
@@ -76,19 +81,24 @@ def test_where_occupied_formats():
     assert np.array_equal(rc_sorted, rc_true_sorted), f"rc occupied wrong: {rc}"
 
     # ind format (linear indices in row-major)
-    # indices: (0,1)->1 and (1,0)->3
+    # indices: (0,1)->1, (1,0)->3, (1,2)->5
     inds = ogm.where_occupied(format='ind', threshold=50)
     inds_sorted = np.sort(inds)
-    inds_true = np.array([1, 3])
+    inds_true = np.array([1, 3, 5])
     assert np.array_equal(inds_sorted, inds_true), f"ind occupied wrong: {inds}"
 
     # xy format (use MapConversions sub2xy mapping)
     xy = ogm.where_occupied(format='xy', threshold=50)
-    # For resolution 1.0, cell centers typically at (c+0.5, r+0.5) from origin (0,0)
-    # so (r,c)=(0,1) -> (x,y)=(1.5,0.5), (1,0)->(0.5,1.5)
+    # For resolution 1.0, cell centers at (c+0.5, r+0.5) from origin (0,0):
+    # (r,c)=(0,1) -> (1.5,0.5)
+    # (r,c)=(1,0) -> (0.5,1.5)
+    # (r,c)=(1,2) -> (2.5,1.5)
     xy_sorted = xy[np.lexsort((xy[:, 1], xy[:, 0]))]
-    xy_true = np.array([[0.5, 1.5],
-                        [1.5, 0.5]])
+    xy_true = np.array([
+        [0.5, 1.5],
+        [1.5, 0.5],
+        [2.5, 1.5],
+    ])
     assert np.allclose(xy_sorted, xy_true), f"xy occupied wrong:\n{xy_sorted}\n!=\n{xy_true}"
 
 
@@ -98,14 +108,16 @@ def test_is_occupied_points():
     ogm = OccupancyGridMap.from_msg(msg)
 
     # Query some points near cell centers:
-    # (r,c)=(0,1) occupied -> center (1.5, 0.5)
-    # (r,c)=(1,0) occupied -> center (0.5, 1.5)
-    xs = np.array([1.5, 0.5, 2.5, 1.5])
-    ys = np.array([0.5, 1.5, 0.5, 1.5])
+    # (r,c)=(0,1) occupied (100)  -> center (1.5, 0.5)
+    # (r,c)=(1,0) occupied (100)  -> center (0.5, 1.5)
+    # (r,c)=(1,2) occupied (-1)   -> center (2.5, 1.5)  # unknown treated as occupied
+    # (r,c)=(0,2) free (0)        -> center (2.5, 0.5)
+    xs = np.array([1.5, 0.5, 2.5, 2.5])
+    ys = np.array([0.5, 1.5, 1.5, 0.5])
     occ = ogm.is_occupied(xs, ys, threshold=50)
 
-    # True for first two, False for last two
-    expected = np.array([True, True, False, False])
+    # Expect first three True (two 100's and one -1), last one False (free cell)
+    expected = np.array([True, True, True, False])
     assert np.array_equal(occ, expected), f"is_occupied wrong: {occ} vs {expected}"
 
 
@@ -114,7 +126,7 @@ def test_add_block_marks_cells():
     msg = make_og_msg_2x3()
     ogm = OccupancyGridMap.from_msg(msg)
 
-    # Start with two occupied cells at (0,1) and (1,0)
+    # Start with three occupied cells: (0,1), (1,0), (1,2=-1)
     # Add a block covering x:[2.0, 3.0], y:[0.0, 1.0]
     # This should mark (r,c)=(0,2) as occupied (center at x=2.5,y=0.5)
     ogm.add_block(np.array([2.0, 0.0, 3.0, 1.0]))
@@ -146,7 +158,8 @@ def test_to_msg_roundtrip():
     assert out.info.origin.position.x == 0.0, "origin x mismatch"
     assert out.info.origin.position.y == 0.0, "origin y mismatch"
     assert out.info.origin.orientation.w == 1.0, "origin orientation mismatch"
-    # data flatten should match ogm.data row-major
+
+    # data flatten should match ogm.data row-major (including the -1)
     flat_expected = ogm.data.flatten().astype(int).tolist()
     data_list = list(out.data)
     assert data_list == flat_expected, f"data flatten mismatch: {data_list} vs {flat_expected}"

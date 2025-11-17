@@ -3,7 +3,7 @@ from rclpy import (
     shutdown,
 )
 from rclpy.action import ActionServer
-from rclpy.duration import Duration
+# from rclpy.duration import Duration
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.lifecycle import LifecycleNode, State, TransitionCallbackReturn
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType
@@ -14,8 +14,9 @@ import tf2_ros
 from nav2_msgs.action import ComputePathToPose, ComputePathThroughPoses
 from visualization_msgs.msg import MarkerArray
 
-from datetime import datetime
+# from datetime import datetime
 import numpy as np
+from nav_msgs.msg import Path
 
 from costmap2d import Costmap2D
 from prm import PRM
@@ -108,12 +109,14 @@ class PRMNode(LifecycleNode):
         self.get_logger().info(f'{self.get_name()}: Activating...')
 
         # Prepare PRM
+        self.get_logger().info('Activating PRM Node...')
         self.prm = PRM(
             costmap=self.costmap_node.get_costmap(),
             clock=self.get_clock(),
             logger=self.get_logger(),
             publisher=self.marker_pub,
             **self.prm_params)
+        self.get_logger().info('PRM Node activated.')
 
         # Create action server
         self.action_server = ActionServer(
@@ -171,15 +174,30 @@ class PRMNode(LifecycleNode):
         ##### YOUR CODE STARTS HERE ##### # noqa: E266
         # TODO Read the information in the action request, paying attention to initial pose
         # NOTE The use_start field coming in should always be False
-        pass
+        request = goal_handle.request
+        map_frame = self.costmap_node.get_map_frame_id()
+
+        xyt = lookup_transform(
+            tf_buffer=self.tf_buffer,
+            base_frame=map_frame,
+            child_frame=self.robot_frame_id,
+            format='xyt'
+        )
+        start_xy = np.array(xyt[:2])
+        goal_xy = np.array([request.goal.pose.position.x, request.goal.pose.position.y])
 
         # NOTE No need to publish feedback since the action definition does not include it
 
         # TODO Use prm.query to plan a path from the current robot position to the goal
         # NOTE You can optionally choose to add points to the PRM if no path is found
         # NOTE fill in the action response with the planned path and planning time
+        start_time = self.get_clock().now()
+        path_msg = self.prm.query(start=start_xy, goal=goal_xy)
+        end_time = self.get_clock().now()
         result = ComputePathToPose.Result()
-        pass
+        result.path = path_msg
+        result.planning_time = (end_time - start_time).to_msg()
+        goal_handle.succeed()
         ##### YOUR CODE ENDS HERE   ##### # noqa: E266
         return result
 
@@ -195,19 +213,71 @@ class PRMNode(LifecycleNode):
         ##### YOUR CODE STARTS HERE ##### # noqa: E266
         # TODO Read the information in the action request, paying attention to initial pose
         # NOTE The use_start field coming in should always be False
-        pass
+        request = goal_handle.request
+        map_frame = self.costmap_node.get_map_frame_id()
+        result = ComputePathThroughPoses.Result()
 
         # TODO Check that the requested data is valid, if not return the proper error code
         #   (see the action response definition for the list of error codes)
-        pass
+        if len(request.goals) == 0:
+            if (
+                hasattr(result, 'error_code')
+                and hasattr(ComputePathThroughPoses.Result, 'UNKNOWN')
+            ):
+                result.error_code = ComputePathThroughPoses.Result.UNKNOWN
+            goal_handle.abort()
+            return result
+
+        xmin, ymin, xmax, ymax = self.prm.ogm.boundary
+        for pose_stamped in request.goals:
+            gx = pose_stamped.pose.position.x
+            gy = pose_stamped.pose.position.y
+            if not (xmin <= gx <= xmax and ymin <= gy <= ymax):
+                if (
+                    hasattr(result, 'error_code')
+                    and hasattr(ComputePathThroughPoses.Result, 'GOAL_OUTSIDE_MAP')
+                ):
+                    result.error_code = ComputePathThroughPoses.Result.GOAL_OUTSIDE_MAP
+                goal_handle.abort()
+                return result
+
+        xyt = lookup_transform(
+            tf_buffer=self.tf_buffer,
+            base_frame=map_frame,
+            child_frame=self.robot_frame_id,
+            format='xyt'
+        )
+        start_xy = np.array(xyt[:2])
+        goal_list_xy = []
+        for pose_stamped in request.goals:
+            goal_list_xy.append(
+                np.array([pose_stamped.pose.position.x, pose_stamped.pose.position.y])
+            )
 
         # NOTE No need to publish feedback since the action definition does not include it
 
         # TODO Use prm.query to plan a path from the current robot position to the goal
         # NOTE You can optionally choose to add points to the PRM if no path is found
         # NOTE fill in the action response with the planned path and planning time
-        result = ComputePathThroughPoses.Result()
-        pass
+        start_time = self.get_clock().now()
+        combined_path = Path()
+        combined_path.header.frame_id = map_frame
+        combined_path.header.stamp = self.get_clock().now().to_msg()
+        current_start = start_xy
+        first_segment = True
+        for goal_xy in goal_list_xy:
+            segment_path = self.prm.query(current_start, goal=goal_xy)
+            if first_segment:
+                combined_path.poses.extend(segment_path.poses)
+                first_segment = False
+            else:
+                combined_path.poses.extend(segment_path.poses[1:])
+            current_start = goal_xy
+        end_time = self.get_clock().now()
+
+        result.path = combined_path
+        result.planning_time = (end_time - start_time).to_msg()
+        goal_handle.succeed()
         ##### YOUR CODE ENDS HERE   ##### # noqa: E266
         return result
 

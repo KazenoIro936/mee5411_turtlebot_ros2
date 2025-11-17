@@ -127,7 +127,8 @@ class OccupancyGridMap(MapConversions):
         valid_rows = (rows >= 0) & (rows < self.array_shape[0])
         valid_cols = (cols >= 0) & (cols < self.array_shape[1])
         valid = valid_rows & valid_cols
-        occupied[valid] = self.data[rows[valid], cols[valid]] >= threshold
+        vals = self.data[rows[valid], cols[valid]]
+        occupied[valid] = (vals >= threshold) | (vals < 0)
         ##### YOUR CODE ENDS HERE   ##### # noqa: E266
         return occupied
 
@@ -147,7 +148,7 @@ class OccupancyGridMap(MapConversions):
         ##### YOUR CODE STARTS HERE ##### # noqa: E266
         # TODO Check for occupancy in the map based on the input type
         locations = np.zeros(2)
-        rows, cols = np.where(self.data >= threshold)
+        rows, cols = np.where((self.data >= threshold) | (self.data < 0))
         if format == 'rc':
             locations = np.vstack((rows, cols)).T
         elif format == 'ind':

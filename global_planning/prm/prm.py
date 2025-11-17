@@ -1,7 +1,8 @@
 from rclpy.clock import Clock
 from rclpy.publisher import Publisher
 
-from geometry_msgs.msg import Point
+
+from geometry_msgs.msg import Point, PoseStamped
 from nav2_msgs.msg import Costmap
 from nav_msgs.msg import OccupancyGrid, Path
 from visualization_msgs.msg import Marker, MarkerArray
@@ -26,7 +27,7 @@ class PRM:
             connection_radius: float,
             step_size: float,
             *,
-            logger = None,
+            logger=None,
             publisher: Publisher = None,
             publish_every_n: int = 20,
             clock: Clock = None) -> None:
@@ -52,8 +53,15 @@ class PRM:
         og.info.width = costmap.metadata.size_x
         og.info.height = costmap.metadata.size_y
         og.info.origin = costmap.metadata.origin
-        og.data = np.array(costmap.data).astype(np.int8).flatten().tolist()
-        og.data[og.data == 127] = -1  # unknown
+        data = np.array(costmap.data, dtype=np.int8).reshape(
+            costmap.metadata.size_y,
+            costmap.metadata.size_x
+        )
+        data[data == 127] = -1
+        og.data = data.flatten().tolist()
+
+        # og.data = np.array(costmap.data).astype(np.int8).flatten().tolist()
+        # og.data[og.data == 127] = -1  # unknown
         self.ogm = OccupancyGridMap.from_msg(og)
 
         # Check inputs
@@ -106,14 +114,14 @@ class PRM:
         for i in tqdm(range(num_points)):  # Wrap in tqdm for progress bar
             ##### YOUR CODE STARTS HERE ##### # noqa: E266
             # TODO Generate valid point in free space
-            pass
-
+            pt = self.sample_free_point()
+            node_id = self.graph.number_of_nodes()
             # TODO Add the point to the graph node list
             #   Include an attribute called 'location' holding the 2D position
             #   'location' can be formatted as a list or as a numpy array
             #   see documentation here:
             #   https://networkx.org/documentation/stable/tutorial.html#adding-attributes-to-graphs-nodes-and-edges
-            pass
+            self.graph.add_node(node_id, location=pt)
             ##### YOUR CODE ENDS HERE   ##### # noqa: E266
             # Display graph as it is being built
             if self.publisher is not None and i % self.publish_every_n == self.publish_every_n - 1:
@@ -136,7 +144,18 @@ class PRM:
         #     If it is, add an edge between the two points in the graph
         # NOTE Read the documentation for the KDTree class to find points within a certain radius
         #    https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.KDTree.html
-        pass
+        num_nodes = len(self.graph.nodes)
+        if num_nodes == 0:
+            return
+        for i in range(num_nodes):
+            p_i = pts[i]
+            neighbor_indices = self.kdtree.query_ball_point(p_i, self.connection_radius)
+            for j in neighbor_indices:
+                if j == i or self.graph.has_edge(i, j):
+                    continue
+                p_j = pts[j]
+                if self.valid_edge(p_i, p_j):
+                    self.graph.add_edge(i, j)
         ##### YOUR CODE ENDS HERE   ##### # noqa: E266
         # Show final graph with edges
         if self.publisher is not None:
@@ -154,13 +173,16 @@ class PRM:
         ##### YOUR CODE STARTS HERE ##### # noqa: E266
         # TODO Draw a random point within the boundary
         # NOTE You can use np.random.rand to draw random numbers between 0 and 1
-        pass
+        xmin, ymin, xmax, ymax = self.ogm.boundary
+        while True:
+            x = np.random.uniform(xmin, xmax)
+            y = np.random.uniform(ymin, ymax)
+            occ = self.ogm.is_occupied(np.array([x]), np.array([y]))[0]
+            if not occ:
+                return np.array([x, y])
 
         # TODO Check if point is valid (i.e., not in collision based on the map)
         #      If it is not then try again, if it is valid then return the point
-        pass
-
-        return np.array([0.0, 0.0])  # placeholder return
         ##### YOUR CODE ENDS HERE   ##### # noqa: E266
 
     def valid_edge(self, p0: np.array, p1: np.array) -> bool:
@@ -175,12 +197,23 @@ class PRM:
         """
         ##### YOUR CODE STARTS HERE ##### # noqa: E266
         # TODO Create a series of points starting at p0 and ending at p1 in steps of self.step_size
-        pass
-
+        diff = p1 - p0
+        dist = np.linalg.norm(diff)
+        if dist == 0.0:
+            occ = self.ogm.is_occupied(
+                np.array([p0[0]]),
+                np.array([p0[1]])
+            )[0]
+            return not occ
         # TODO Check to make sure none of the points collide with the map
-        pass
-
-        return False
+        num_steps = max(1, int(dist / self.step_size))
+        for k in range(1, num_steps + 1):
+            alpha = k / num_steps
+            p = p0 + alpha * diff  # interpolated point
+            occ = self.ogm.is_occupied(np.array([p[0]]), np.array([p[1]]))[0]
+            if occ:
+                return False
+        return True
         ##### YOUR CODE ENDS HERE   ##### # noqa: E266
 
     def query(self, start: np.array, goal: np.array) -> Path:
@@ -199,19 +232,66 @@ class PRM:
         ##### YOUR CODE STARTS HERE ##### # noqa: E266
         # TODO Add the start and goal points to the PRM graph
         # NOTE You need to connect the start and goal points to existing nodes in the PRM
-        pass
+        if self.ogm.is_occupied(np.array([start[0]]), np.array([start[1]]))[0]:
+            raise Exception('Start point is in an occupied cell')
+        if self.ogm.is_occupied(np.array([goal[0]]), np.array([goal[1]]))[0]:
+            raise Exception('Goal point is in an occupied cell')
 
+        start_id = self.graph.number_of_nodes()
+        self.graph.add_node(start_id, location=start)
+        goal_id = self.graph.number_of_nodes()
+        self.graph.add_node(goal_id, location=goal)
+        # Connect start node to nearby nodes
+        if self.kdtree is None:
+            raise Exception('KDTree not initialized')
+        neighbor_indices = self.kdtree.query_ball_point(start, self.connection_radius)
+        for j in neighbor_indices:
+            p_j = self.graph.nodes[j]['location']
+            if self.valid_edge(start, p_j):
+                self.graph.add_edge(start_id, j)
+        # Connect goal node to nearby nodes
+        neighbor_indices = self.kdtree.query_ball_point(goal, self.connection_radius)
+        for j in neighbor_indices:
+            p_j = self.graph.nodes[j]['location']
+            if self.valid_edge(goal, p_j):
+                self.graph.add_edge(goal_id, j)
         # TODO Plan path using A*
         # NOTE Use networkx library to call A* to find a path from the start to goal nodes.
         #   See documentation here:
         #   https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.shortest_paths.astar.astar_path.html
-        pass
+        try:
+            path_node_ids = nx.astar_path(
+                self.graph,
+                start_id,
+                goal_id,
+                heuristic=lambda a, b: np.linalg.norm(
+                    self.graph.nodes[a]['location'] - self.graph.nodes[b]['location']
+                )
+            )
+        except nx.NetworkXNoPath:
+            self.graph.remove_node(start_id)
+            self.graph.remove_node(goal_id)
+            raise Exception('No path found between start and goal')
+        # Remove start and goal nodes from the graph to restore original PRM
 
         # TODO Convert the path returned by networkx to a nav_msgs/msg/Path message
         # NOTE Make sure to include the start and goal points
         path = Path()
-        pass
+        if self.clock is not None:
+            path.header.stamp = self.clock.now().to_msg()
+        path.header.frame_id = self.ogm.frame_id
+        for node_id in path_node_ids:
+            loc = self.graph.nodes[node_id]['location']
+            pose = PoseStamped()
+            pose.header = path.header
+            pose.pose.position.x = loc[0]
+            pose.pose.position.y = loc[1]
+            pose.pose.position.z = Z
+            pose.pose.orientation.w = 1.0  # neutral orientation
+            path.poses.append(pose)
 
+        self.graph.remove_node(start_id)
+        self.graph.remove_node(goal_id)
         return path
         ##### YOUR CODE ENDS HERE   ##### # noqa: E266
 
